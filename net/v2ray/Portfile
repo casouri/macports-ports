@@ -1,0 +1,57 @@
+# -*- coding: utf-8; mode: tcl; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- vim:fenc=utf-8:ft=tcl:et:sw=4:ts=4:sts=4
+
+PortSystem          1.0
+PortGroup           golang 1.0
+
+name                v2ray
+version             4.21.3
+categories          net security
+platforms           darwin
+license             MIT
+maintainers         {@casouri gmail.com:casouri}
+description         A platform for building proxies to bypass network restrictions
+
+long_description    Project V is a set of network tools that help you to build your own computer network. \
+                    It secures your network connections and thus protects your privacy.
+
+homepage            https://www.v2ray.com
+go.setup            github.com/v2ray/v2ray-core ${version} v
+
+checksums           rmd160  99206bc61254defe0dbec2e45deabf458dfaa647 \
+                    sha256  c0babc58c299483107c8ed00b5834962fef6f56a3f0b38835ef70cd7f42e6026 \
+                    size    6828463
+
+use_configure       no
+
+build {
+    system -W ${worksrcpath}/main "env CGO_ENABLED=0 go build -o ./v2ray -ldflags \"-s -w\""
+    system -W ${worksrcpath}/infra/control/main "env CGO_ENABLED=0 go build -o ./v2ctl -tags confonly -ldflags \"-s -w\""
+}
+
+destroot {
+    xinstall -m 755 ${worksrcpath}/main/v2ray ${destroot}${prefix}/bin
+    xinstall -m 755 ${worksrcpath}/infra/control/main/v2ctl ${destroot}${prefix}/bin
+    xinstall -m 755 ${worksrcpath}//release/config/geosite.dat ${destroot}${prefix}/bin
+    xinstall -m 755 ${worksrcpath}//release/config/geoip.dat ${destroot}${prefix}/bin
+    xinstall -d ${destroot}${prefix}/etc/v2ray
+    xinstall -m 640 ${worksrcpath}/release/config/config.json ${destroot}${prefix}/etc/v2ray
+}
+
+# until #2365 is implemented, manually handle config file
+post-destroot {
+    file rename ${destroot}${prefix}/etc/v2ray/config.json ${destroot}${prefix}/etc/v2ray/config.json.example
+}
+
+post-activate {
+    if {![file exists ${prefix}/etc/v2ray/config.json]} {
+        file copy ${prefix}/etc/v2ray/config.json.example ${prefix}/etc/v2ray/config.json
+    }
+}
+
+startupitem.create          yes
+startupitem.executable      ${prefix}/bin/v2ray --config ${prefix}/etc/v2ray/config.json
+
+notes                       "
+                            The default configuration file is copied to ${prefix}/etc/v2ray/config.json.
+                            It is used by the startup item (service). You should edit or replace it.
+                            "
